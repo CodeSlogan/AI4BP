@@ -90,6 +90,7 @@ for epoch in range(num_epochs):
 
         batch_inputs = batch_inputs.view(batch_inputs.shape[0], -1, 1, args.patch_len)
         batch = batch_inputs.to(device)  # 添加通道维度
+        batch_targets = batch_targets.to(device)
 
         outputs = model(batch)
         outputs = outputs.view(batch_inputs.shape[0], -1)
