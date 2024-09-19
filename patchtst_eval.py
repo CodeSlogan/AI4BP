@@ -13,6 +13,54 @@ from datetime import datetime
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
+def find_sbp_dbp(y):
+    """
+    Find sbp and dbp in a 1D sequence.
+    """
+    sbp = np.where((y[1:-1] > y[:-2]) & (y[1:-1] > y[2:]))[0] + 1
+    dbp = np.where((y[1:-1] < y[:-2]) & (y[1:-1] < y[2:]))[0] + 1
+    return sbp, dbp
+
+
+def calculate_batch_errors(preds, true):
+    """
+    Calculate MAE and MSE for sbp and dbp across a batch of sequences.
+    """
+    batch_size, seq_length = preds.shape
+    mae_sbp = []
+    mse_sbp = []
+    mae_dbp = []
+    mse_dbp = []
+    all_peak_errors = []
+    all_trough_errors = []
+
+    for i in range(batch_size):
+        sbp, dbp = find_sbp_dbp(true[i])
+        sbp_errors = np.abs(preds[i, sbp] - true[i, sbp])
+        dbp_errors = np.abs(preds[i, dbp] - true[i, dbp])
+        all_peak_errors.extend(sbp_errors)
+        all_trough_errors.extend(dbp_errors)
+
+        mae_p, mse_p = np.mean(np.abs(preds[i, sbp] - true[i, sbp])), np.mean(
+            (preds[i, sbp] - true[i, sbp]) ** 2)
+        mae_t, mse_t = np.mean(np.abs(preds[i, dbp] - true[i, dbp])), np.mean(
+            (preds[i, dbp] - true[i, dbp]) ** 2)
+        mae_sbp.append(mae_p)
+        mse_sbp.append(mse_p)
+        mae_dbp.append(mae_t)
+        mse_dbp.append(mse_t)
+
+    sd_peaks = np.std(all_peak_errors) if all_peak_errors else np.nan
+    sd_troughs = np.std(all_trough_errors) if all_trough_errors else np.nan
+
+    thresholds = [5, 10, 15]
+    peak_percentages = [np.mean(np.array(all_peak_errors) <= thresh) for thresh in thresholds]
+    trough_percentages = [np.mean(np.array(all_trough_errors) <= thresh) for thresh in thresholds]
+
+    return np.mean(mae_sbp), np.mean(mse_sbp), np.mean(mae_dbp), np.mean(mse_dbp), sd_peaks, sd_troughs, peak_percentages, trough_percentages
+
+
 input1_scaler, input2_scaler, output_scaler, train_dataloader, test_dataloader = DataModule2()
 print("Load data done!")
 
@@ -96,7 +144,12 @@ model.load_state_dict(torch.load('model/param/patchtst_epoch800_240919_ppgecg.pt
 model.eval()  # 设置模型为评估模式
 total_loss = 0
 inverse_loss = 0
-with torch.no_grad():  # 在评估过程中不需要计算梯度
+MAE_SBP, MSE_SBP, MAE_DBP, MSE_DBP = [], [], [], []
+SD_SBP, SD_DBP = [], []
+SBP5, SBP10, SBP15 = [], [], []
+DBP5, DBP10, DBP15 = [], [], []
+
+with (torch.no_grad()):  # 在评估过程中不需要计算梯度
     for batch_inputs, batch_targets in test_dataloader:
         batch_inputs = batch_inputs.view(batch_inputs.shape[0], -1, args.c_in, args.patch_len)
         batch_inputs = batch_inputs.to(device)
@@ -114,13 +167,32 @@ with torch.no_grad():  # 在评估过程中不需要计算梯度
         batch_targets_inver = output_scaler.inverse_transform(batch_targets.cpu())
         inverse_loss += mse_loss(outputs_inver, batch_targets_inver)
 
-        # batch_inputs = batch_inputs.view(batch_inputs.shape[0], -1)
-        # outputs = outputs.view(batch_inputs.shape[0], -1)
-        # show_image(batch_inputs, batch_targets, outputs)
+        mae_sbp, mse_sbp, mae_dbp, mse_dbp, sd_peaks, sd_troughs, peak_percentages, trough_percentages = calculate_batch_errors(outputs_inver, batch_targets_inver)
+        MAE_SBP.append(mae_sbp)
+        MSE_SBP.append(mse_sbp)
+        MAE_DBP.append(mae_dbp)
+        MSE_DBP.append(mse_dbp)
+        SD_SBP.append(sd_peaks)
+        SD_DBP.append(sd_troughs)
+        SBP5.append(peak_percentages[0])
+        SBP10.append(peak_percentages[1])
+        SBP15.append(peak_percentages[2])
+        DBP5.append(trough_percentages[0])
+        DBP10.append(trough_percentages[1])
+        DBP15.append(trough_percentages[2])
 
 average_loss = total_loss / len(test_dataloader)
 rmse_loss = torch.sqrt(torch.tensor(average_loss))
 inverse_loss = inverse_loss / len(test_dataloader)
 print(f"average_loss: {average_loss:.4f}")
 print(f"RMSE Loss: {rmse_loss.item():.4f}")
-print(f"归一化前: {inverse_loss.item():.4f}")
+print(f"归一化前总loss: {inverse_loss.item():.4f}")
+print(f"MAE SBP: {np.mean(MAE_SBP):.4f}")
+print(f"MSE SBP: {np.mean(MSE_SBP):.4f}")
+print(f"SD_SBP: {np.mean(SD_SBP):.4f}")
+print(f"MAE DBP: {np.mean(MAE_DBP):.4f}")
+print(f"MSE DBP: {np.mean(MSE_DBP):.4f}")
+print(f"SD_DBP: {np.mean(SD_DBP):.4f}")
+
+print(f"SBP5: {np.mean(SBP5)*100:.4f}%, SBP10: {np.mean(SBP10)*100:.4f}%, SBP15: {np.mean(SBP15)*100:.4f}%")
+print(f"DBP5: {np.mean(DBP5)*100:.4f}%, DBP10: {np.mean(DBP10)*100:.4f}%, DBP15: {np.mean(DBP15)*100:.4f}%")
