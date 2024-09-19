@@ -1,9 +1,8 @@
 import pandas as pd
-import torch
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 from torch.utils.data import DataLoader
-from .CustomDataset import CustomDataset, SequenceDataset
+from .CustomDataset import *
 import scipy.io as sio
 import numpy as np
 
@@ -47,7 +46,8 @@ def DataModule():
 
     return input_scaler, output_scaler, train_dataloader, test_dataloader
 
-def DataModule2():
+
+def DataModule2(only_ppg=False):
     seq_len = 1024
     batch_size = 64
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -89,8 +89,12 @@ def DataModule2():
     train_input1, test_input1, train_input2, test_input2, train_output, test_output = train_test_split(
         ppgs, ecgs, abps, test_size=0.3, random_state=42)
 
-    train_dataset = SequenceDataset(train_input1, train_input2, train_output)
-    test_dataset = SequenceDataset(test_input1, test_input2, test_output)
+    if not only_ppg:
+        train_dataset = SequenceDataset(train_input1, train_input2, train_output)
+        test_dataset = SequenceDataset(test_input1, test_input2, test_output)
+    else:
+        train_dataset = SequenceDatasetPPG(train_input1, train_input2, train_output)
+        test_dataset = SequenceDatasetPPG(test_input1, test_input2, test_output)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)

@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 from data_process.CustomDataset import CustomDataset
 from model.patchtst2.patchTST import PatchTST
 from data_process.DataModule import DataModule2
+from datetime import datetime
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -88,8 +89,8 @@ for epoch in range(num_epochs):
             print(f"epoch:{epoch}, {step}/{len(train_dataloader)}")
 
         batch_inputs = batch_inputs.view(batch_inputs.shape[0], -1, args.c_in, args.patch_len)
-        batch = batch_inputs.to(device)  # 添加通道维度
-        batch_targets = batch_targets.to(device)  # 添加通道维度
+        batch = batch_inputs.to(device)
+        batch_targets = batch_targets.to(device)
 
         outputs = model(batch)
         outputs = outputs.squeeze(1)
@@ -102,5 +103,7 @@ for epoch in range(num_epochs):
 
     print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}")
 
-torch.save(model.state_dict(), f"model/param/patchtst_epoch{num_epochs}.pth")
+current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+file_name = f"model/param/patchtst_{current_time}_epoch{num_epochs}.pth"
+torch.save(model.state_dict(), file_name)
 print("The model has been saved successfully!")
