@@ -3,54 +3,9 @@ from data_process.DataModule import DataModule2
 from model.cross_models.cross_former import Crossformer
 import numpy as np
 import torch.nn as nn
+from utils.eval_func import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-def find_sbp_dbp(y):
-    """
-    Find sbp and dbp in a 1D sequence.
-    """
-    sbp = np.where((y[1:-1] > y[:-2]) & (y[1:-1] > y[2:]))[0] + 1
-    dbp = np.where((y[1:-1] < y[:-2]) & (y[1:-1] < y[2:]))[0] + 1
-    return sbp, dbp
-
-
-def calculate_batch_errors(preds, true):
-    """
-    Calculate MAE and MSE for sbp and dbp across a batch of sequences.
-    """
-    batch_size, seq_length = preds.shape
-    mae_sbp = []
-    mse_sbp = []
-    mae_dbp = []
-    mse_dbp = []
-    all_peak_errors = []
-    all_trough_errors = []
-
-    for i in range(batch_size):
-        sbp, dbp = find_sbp_dbp(true[i])
-        sbp_errors = np.abs(preds[i, sbp] - true[i, sbp])
-        dbp_errors = np.abs(preds[i, dbp] - true[i, dbp])
-        all_peak_errors.extend(sbp_errors)
-        all_trough_errors.extend(dbp_errors)
-
-        mae_p, mse_p = np.mean(np.abs(preds[i, sbp] - true[i, sbp])), np.mean(
-            (preds[i, sbp] - true[i, sbp]) ** 2)
-        mae_t, mse_t = np.mean(np.abs(preds[i, dbp] - true[i, dbp])), np.mean(
-            (preds[i, dbp] - true[i, dbp]) ** 2)
-        mae_sbp.append(mae_p)
-        mse_sbp.append(mse_p)
-        mae_dbp.append(mae_t)
-        mse_dbp.append(mse_t)
-
-    sd_peaks = np.std(all_peak_errors) if all_peak_errors else np.nan
-    sd_troughs = np.std(all_trough_errors) if all_trough_errors else np.nan
-
-    thresholds = [5, 10, 15]
-    peak_percentages = [np.mean(np.array(all_peak_errors) <= thresh) for thresh in thresholds]
-    trough_percentages = [np.mean(np.array(all_trough_errors) <= thresh) for thresh in thresholds]
-
-    return np.mean(mae_sbp), np.mean(mse_sbp), np.mean(mae_dbp), np.mean(mse_dbp), sd_peaks, sd_troughs, peak_percentages, trough_percentages
 
 input1_scaler, input2_scaler, output_scaler, train_dataloader, test_dataloader = DataModule2()
 print("Load data done!")
@@ -111,16 +66,6 @@ model = Crossformer(
         ).float().to(device)
 
 criterion = nn.MSELoss()
-
-def mse_loss(y_true, y_pred):
-    error = y_pred - y_true
-
-    squared_error = error ** 2
-
-    mse = np.mean(squared_error)
-
-    return mse
-
 
 model.load_state_dict(torch.load('model/param/crossformer_20241021_043150_epoch800.pth'))
 
