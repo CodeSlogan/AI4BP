@@ -107,6 +107,6 @@ for epoch in range(num_epochs):
     print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}")
 
 current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-file_name = f"model/param/crossformer_{current_time}_epoch{num_epochs}.pth"
+file_name = f"model/param/softs_{current_time}_epoch{num_epochs}.pth"
 torch.save(model.state_dict(), file_name)
 print("The model has been saved successfully!")
