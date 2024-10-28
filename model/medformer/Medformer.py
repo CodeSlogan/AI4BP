@@ -62,14 +62,14 @@ class Medformer(nn.Module):
             norm_layer=torch.nn.LayerNorm(configs.d_model),
         )
         # Decoder
-        # self.act = F.gelu
-        # self.dropout = nn.Dropout(configs.dropout)
-        # self.projection = nn.Linear(
-        #     configs.d_model
-        #     * sum(patch_num_list)
-        #     * (1 if not self.single_channel else configs.enc_in),
-        #     configs.pred_len,
-        # )
+        self.act = F.gelu
+        self.dropout = nn.Dropout(configs.dropout)
+        self.projection = nn.Linear(
+            configs.d_model
+            * sum(patch_num_list)
+            * (1 if not self.single_channel else configs.enc_in),
+            configs.pred_len,
+        )
         # ==================================================================================
         # new Decoder
         self.decoder = Decoder(
@@ -94,18 +94,18 @@ class Medformer(nn.Module):
         if self.single_channel:
             enc_out = torch.reshape(enc_out, (-1, self.enc_in, *enc_out.shape[-2:]))
 
-        # Output
-        # output = self.act(
-        #     enc_out
-        # )  # the output transformer encoder/decoder embeddings don't include non-linearity
-        # output = self.dropout(output)
-        # output = output.reshape(
-        #     output.shape[0], -1
-        # )  # (batch_size, seq_length * d_model)
-        # output = self.projection(output)  # (batch_size, pred_len)
-
         # new Output
-        output = self.decoder(enc_out)
+        output = self.decoder(enc_out)[0]
+
+        # Output
+        output = self.act(
+            output
+        )  # the output transformer encoder/decoder embeddings don't include non-linearity
+        output = self.dropout(output)
+        output = output.reshape(
+            output.shape[0], -1
+        )  # (batch_size, seq_length * d_model)
+        output = self.projection(output)  # (batch_size, pred_len)
 
         return output
 
