@@ -65,7 +65,7 @@ parser.add_argument("--c_out", type=int, default=2, help="output size")
 parser.add_argument("--d_model", type=int, default=128, help="dimension of model")
 parser.add_argument("--n_heads", type=int, default=8, help="num of heads")
 parser.add_argument("--e_layers", type=int, default=6, help="num of encoder layers")
-parser.add_argument("--d_layers", type=int, default=1, help="num of decoder layers")
+parser.add_argument("--d_layers", type=int, default=3, help="num of decoder layers")
 parser.add_argument("--d_ff", type=int, default=256, help="dimension of fcn")
 parser.add_argument(
     "--moving_avg", type=int, default=25, help="window size of moving average"

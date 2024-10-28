@@ -48,3 +48,22 @@ class Encoder(nn.Module):
             x = self.norm(x)
 
         return x, attns
+
+
+class Decoder(nn.Module):
+    def __init__(self, attn_layers, norm_layer=None):
+        super(Decoder, self).__init__()
+        self.attn_layers = nn.ModuleList(attn_layers)
+        self.norm = norm_layer
+
+    def forward(self, x, attn_mask=None, tau=None, delta=None):
+        # x [[B, L1, D], [B, L2, D], ...]
+        attns = []
+        for attn_layer in self.attn_layers:
+            x, attn = attn_layer(x, x, x, attn_mask=attn_mask, tau=tau, delta=delta)
+            attns.append(attn)
+
+        if self.norm is not None:
+            x = self.norm(x)
+
+        return x, attns

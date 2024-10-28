@@ -61,7 +61,6 @@ class Decoder(nn.Module):
         for i in range(d_layers):
             self.decode_layers.append(DecoderLayer(seg_len, d_model, n_heads, d_ff, dropout, \
                                         out_seg_num, factor))
-        self.MLP = nn.Linear(2, 1)
 
     def forward(self, x, cross):
         final_predict = None
