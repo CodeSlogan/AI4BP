@@ -7,7 +7,7 @@ import scipy.io as sio
 import numpy as np
 
 def DataModule():
-    device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     ppg_pd = pd.read_csv('./data/ppg_matrix.csv')
     abp_pd = pd.read_csv('./data/abp_matrix.csv')

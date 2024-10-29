@@ -176,7 +176,7 @@ learning_rate = args.learning_rate
 
 criterion = nn.MSELoss()
 
-model.load_state_dict(torch.load('model/param/medformer_20241023_035325_epoch800.pth'))
+model.load_state_dict(torch.load('model/param/medformer_20241029_174050_epoch800.pth'))
 
 model.eval()  # 设置模型为评估模式
 total_loss = 0
