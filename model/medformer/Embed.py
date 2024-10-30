@@ -273,7 +273,7 @@ class ListPatchEmbedding(nn.Module):
         )
 
     def forward(self, x):  # (batch_size, seq_len, enc_in)
-        x = x.permute(0, 2, 1)  # (batch_size, enc_in, seq_len)
+        x = x.permute(0, 2, 1)  # (batch_size, enc_in, seq_len) [64,2,1024]
         if self.single_channel:
             B, C, L = x.shape
             x = torch.reshape(x, (B * C, 1, L))

@@ -5,7 +5,7 @@ from data_process.DataModule import DataModule2
 from datetime import datetime
 from model.medformer.Medformer import Medformer
 
-device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 input1_scaler, input2_scaler, output_scaler, train_dataloader, test_dataloader = DataModule2()
 print("Load data done!")

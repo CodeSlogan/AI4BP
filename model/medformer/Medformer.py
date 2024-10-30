@@ -70,53 +70,8 @@ class Medformer(nn.Module):
             * (1 if not self.single_channel else configs.enc_in),
             configs.pred_len,
         )
-        # ==================================================================================
-        # new Decoder
-        self.decoder = Decoder(
-            [
-                AttentionLayer(
-                    FullAttention(
-                        False,
-                        factor=1,
-                        attention_dropout=configs.dropout
-                    ),
-                    configs.d_model,
-                    configs.n_heads,
-                )
-                for l in range(configs.d_layers)
-            ],
-            norm_layer=torch.nn.LayerNorm(configs.d_model),
-        )
 
     def forecast(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        enc_out = self.enc_embedding(x_enc)
-        enc_out, attns = self.encoder(enc_out, attn_mask=None)
-        if self.single_channel:
-            enc_out = torch.reshape(enc_out, (-1, self.enc_in, *enc_out.shape[-2:]))
-
-        # new Output
-        output = self.decoder(enc_out)[0]
-
-        # Output
-        output = self.act(
-            output
-        )  # the output transformer encoder/decoder embeddings don't include non-linearity
-        output = self.dropout(output)
-        output = output.reshape(
-            output.shape[0], -1
-        )  # (batch_size, seq_length * d_model)
-        output = self.projection(output)  # (batch_size, pred_len)
-
-        return output
-
-    def imputation(self, x_enc, x_mark_enc, x_dec, x_mark_dec, mask):
-        raise NotImplementedError
-
-    def anomaly_detection(self, x_enc):
-        raise NotImplementedError
-
-    def classification(self, x_enc, x_mark_enc):
-        # Embedding
         enc_out = self.enc_embedding(x_enc)
         enc_out, attns = self.encoder(enc_out, attn_mask=None)
         if self.single_channel:
@@ -130,24 +85,12 @@ class Medformer(nn.Module):
         output = output.reshape(
             output.shape[0], -1
         )  # (batch_size, seq_length * d_model)
-        output = self.projection(output)  # (batch_size, num_classes)
+        output = self.projection(output)  # (batch_size, pred_len)
+
         return output
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None, mask=None):
-        if (
-            self.task_name == "long_term_forecast"
-            or self.task_name == "short_term_forecast"
-        ):
-            dec_out = self.forecast(x_enc, x_mark_enc, x_dec, x_mark_dec)
-            # return dec_out[:, -self.pred_len :, :]  # [B, L, D]
-            return dec_out
-        # if self.task_name == "imputation":
-        #     dec_out = self.imputation(x_enc, x_mark_enc, x_dec, x_mark_dec, mask)
-        #     return dec_out  # [B, L, D]
-        # if self.task_name == "anomaly_detection":
-        #     dec_out = self.anomaly_detection(x_enc)
-        #     return dec_out  # [B, L, D]
-        # if self.task_name == "classification":
-        #     dec_out = self.classification(x_enc, x_mark_enc)
-        #     return dec_out  # [B, N]
-        # return None
+        dec_out = self.forecast(x_enc, x_mark_enc, x_dec, x_mark_dec)
+
+        return dec_out
+
