@@ -5,7 +5,7 @@ from data_process.DataModule import DataModule2
 from datetime import datetime
 from model.msgnet.MSGNet import MSGNet
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 
 input1_scaler, input2_scaler, output_scaler, train_dataloader, test_dataloader = DataModule2()
 print("Load data done!")
@@ -79,7 +79,7 @@ parser.add_argument('--do_predict', action='store_true', help='whether to predic
 # optimization
 parser.add_argument('--num_workers', type=int, default=8, help='data loader num workers')
 parser.add_argument('--itr', type=int, default=2, help='experiments times')
-parser.add_argument('--train_epochs', type=int, default=10, help='train epochs')
+parser.add_argument('--train_epochs', type=int, default=800, help='train epochs')
 parser.add_argument('--batch_size', type=int, default=32, help='batch size of train input data')
 parser.add_argument('--patience', type=int, default=3, help='early stopping patience')
 parser.add_argument('--learning_rate', type=float, default=0.0001, help='optimizer learning rate')

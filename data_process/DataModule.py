@@ -50,7 +50,7 @@ def DataModule():
 def DataModule2(only_ppg=False):
     seq_len = 1024
     batch_size = 64
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 
     mat_file = './data/data2/Part_1.mat'
     data = sio.loadmat(mat_file)

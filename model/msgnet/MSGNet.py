@@ -106,6 +106,7 @@ class MSGNet(nn.Module):
             configs.d_model, configs.c_out, bias=True)
         self.seq2pred = Predict(configs.individual ,configs.c_out,
                                 configs.seq_len, configs.pred_len, configs.dropout)
+        self.pro2 = nn.Linear(configs.c_out * configs.pred_len, configs.pred_len, bias=True)
 
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None, mask=None):
@@ -125,7 +126,6 @@ class MSGNet(nn.Module):
         # porject back
         dec_out = self.projection(enc_out)
         dec_out = self.seq2pred(dec_out.transpose(1, 2)).transpose(1, 2)
-
         # De-Normalization from Non-stationary Transformer
         dec_out = dec_out * \
                   (stdev[:, 0, :].unsqueeze(1).repeat(
@@ -133,7 +133,11 @@ class MSGNet(nn.Module):
         dec_out = dec_out + \
                   (means[:, 0, :].unsqueeze(1).repeat(
                       1, self.pred_len, 1))
+        
+        dec_out = dec_out.reshape(dec_out.shape()[0], -1)
+        dec_out = self.pro2(dec_out)
 
-        return dec_out[:, -self.pred_len:, :]
+        # return dec_out[:, -self.pred_len:, :]
+        return dec_out
 
 
