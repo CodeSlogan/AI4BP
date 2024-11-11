@@ -39,14 +39,14 @@ class ScaleGraphBlock(nn.Module):
 
 
     def forward(self, x):
-        B, T, N = x.size()
+        B, T, N = x.size()  # [B,1024,512]
         scale_list, scale_weight = FFT_for_Period(x, self.k)
         res = []
         for i in range(self.k):
             scale = scale_list[i]
-            #Gconv
-            x = self.gconv[i](x)
-            # paddng
+            #Gconv 学习序列间关系
+            x = self.gconv[i](x) # [B, T, N]
+            # padding
             if (self.seq_len) % scale != 0:
                 length = (((self.seq_len) // scale) + 1) * scale
                 padding = torch.zeros([x.shape[0], (length - (self.seq_len)), x.shape[2]]).to(x.device)
@@ -54,9 +54,9 @@ class ScaleGraphBlock(nn.Module):
             else:
                 length = self.seq_len
                 out = x
-            out = out.reshape(B, length // scale, scale, N)
+            out = out.reshape(B, length // scale, scale, N)  # 将T以尺度scale进行划分
 
-        #for Mul-attetion
+            # for Mul-attention 序列内关系
             out = out.reshape(-1 , scale , N)
             out = self.norm(self.att0(out))
             out = self.gelu(out)
