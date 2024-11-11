@@ -111,6 +111,7 @@ class MSGNet(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None, mask=None):
         # Normalization from Non-stationary Transformer
+        B, _, _ = x_enc.size()
         means = x_enc.mean(1, keepdim=True).detach()
         x_enc = x_enc - means
         stdev = torch.sqrt(
@@ -134,7 +135,7 @@ class MSGNet(nn.Module):
                   (means[:, 0, :].unsqueeze(1).repeat(
                       1, self.pred_len, 1))
         
-        dec_out = dec_out.reshape(dec_out.shape()[0], -1)
+        dec_out = dec_out.reshape(B, -1)
         dec_out = self.pro2(dec_out)
 
         # return dec_out[:, -self.pred_len:, :]

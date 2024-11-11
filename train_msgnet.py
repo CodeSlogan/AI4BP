@@ -4,13 +4,9 @@ import torch.optim as optim
 from data_process.DataModule import DataModule2
 from datetime import datetime
 from model.msgnet.MSGNet import MSGNet
-
-device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
-
-input1_scaler, input2_scaler, output_scaler, train_dataloader, test_dataloader = DataModule2()
-print("Load data done!")
-
 import argparse
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 parser = argparse.ArgumentParser(description='MSGNet')
 
@@ -35,7 +31,7 @@ parser.add_argument('--seasonal_patterns', type=str, default='Monthly', help='su
 parser.add_argument('--top_k', type=int, default=3, help='for TimesBlock/ScaleGraphBlock')
 parser.add_argument('--num_kernels', type=int, default=6, help='for Inception')
 
-parser.add_argument('--num_nodes', type=int, default=7, help='to create Graph')
+parser.add_argument('--num_nodes', type=int, default=2, help='to create Graph')
 parser.add_argument('--subgraph_size', type=int, default=3, help='neighbors number')
 parser.add_argument('--tanhalpha', type=float, default=3, help='')
 
@@ -80,7 +76,7 @@ parser.add_argument('--do_predict', action='store_true', help='whether to predic
 parser.add_argument('--num_workers', type=int, default=8, help='data loader num workers')
 parser.add_argument('--itr', type=int, default=2, help='experiments times')
 parser.add_argument('--train_epochs', type=int, default=800, help='train epochs')
-parser.add_argument('--batch_size', type=int, default=32, help='batch size of train input data')
+parser.add_argument('--batch_size', type=int, default=2, help='batch size of train input data')
 parser.add_argument('--patience', type=int, default=3, help='early stopping patience')
 parser.add_argument('--learning_rate', type=float, default=0.0001, help='optimizer learning rate')
 parser.add_argument('--des', type=str, default='test', help='exp description')
@@ -97,6 +93,9 @@ parser.add_argument('--test_flop', action='store_true', default=False, help='See
 
 args = parser.parse_args()
 print('args:', args)
+
+input1_scaler, input2_scaler, output_scaler, train_dataloader, test_dataloader = DataModule2(args)
+print("Load data done!")
 
 # Initialize model
 model = MSGNet(args).to(device)

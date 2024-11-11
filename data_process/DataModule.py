@@ -47,9 +47,9 @@ def DataModule():
     return input_scaler, output_scaler, train_dataloader, test_dataloader
 
 
-def DataModule2(only_ppg=False):
-    seq_len = 1024
-    batch_size = 64
+def DataModule2(config, only_ppg=False):
+    seq_len = config.seq_len
+    batch_size = config.batch_size
     device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 
     mat_file = './data/data2/Part_1.mat'
