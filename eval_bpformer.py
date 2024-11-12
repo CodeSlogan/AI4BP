@@ -4,6 +4,8 @@ import torch.optim as optim
 from data_process.DataModule import DataModule2
 from datetime import datetime
 from model.bpformer.BPformer import BPformer
+from utils.eval_func import *
+import matplotlib.pyplot as plt
 
 device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 
@@ -174,39 +176,64 @@ num_epochs = args.train_epochs
 learning_rate = args.learning_rate
 
 criterion = nn.MSELoss()
-optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-# 训练模型
-for epoch in range(num_epochs):
-    print(f"{epoch}/{num_epochs}")
-    step = 0
-    model.train()
-    for batch_inputs, batch_targets in train_dataloader:
-        step += 1
-        if step % 10 == 0:
-            print(f"epoch:{epoch}, {step}/{len(train_dataloader)}")
+model.load_state_dict(torch.load('model/param/bpformer_0.0008851157617755234_epoch550.pth'))
 
+model.eval()  # 设置模型为评估模式
+total_loss = 0
+inverse_loss = 0
+MAE_SBP, MSE_SBP, MAE_DBP, MSE_DBP = [], [], [], []
+SD_SBP, SD_DBP = [], []
+SBP5, SBP10, SBP15 = [], [], []
+DBP5, DBP10, DBP15 = [], [], []
+
+# cnt = 0
+# cnt1 = 0
+with (torch.no_grad()):  # 在评估过程中不需要计算梯度
+    for batch_inputs, batch_targets in test_dataloader:
         batch_inputs = batch_inputs.to(device)
         batch_targets = batch_targets.to(device)
         batch_inputs = batch_inputs.permute(0, 2, 1)
 
+        # 前向传播
         outputs = model(batch_inputs)
         # outputs = outputs.squeeze(2)
 
+        # 计算损失
         loss = criterion(outputs, batch_targets)
+        total_loss += loss.item()
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        outputs_inver = output_scaler.inverse_transform(outputs.cpu())
+        batch_targets_inver = output_scaler.inverse_transform(batch_targets.cpu())
+        inverse_loss += mse_loss(outputs_inver, batch_targets_inver)
 
-    print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}")
+        mae_sbp, mse_sbp, mae_dbp, mse_dbp, sd_peaks, sd_troughs, peak_percentages, trough_percentages, pos_id, neg_id = calculate_batch_errors(outputs_inver, batch_targets_inver)
+        MAE_SBP.append(mae_sbp)
+        MSE_SBP.append(mse_sbp)
+        MAE_DBP.append(mae_dbp)
+        MSE_DBP.append(mse_dbp)
+        SD_SBP.append(sd_peaks)
+        SD_DBP.append(sd_troughs)
+        SBP5.append(peak_percentages[0])
+        SBP10.append(peak_percentages[1])
+        SBP15.append(peak_percentages[2])
+        DBP5.append(trough_percentages[0])
+        DBP10.append(trough_percentages[1])
+        DBP15.append(trough_percentages[2])
 
-    if epoch and epoch % 50 == 0:
-        file_name = f"model/param/bpformer_{loss}_epoch{epoch}.pth"
-        torch.save(model.state_dict(), file_name)
-        print(f"{file_name} has saved succesfully!")
 
-current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-file_name = f"model/param/bpformer_{current_time}_epoch{num_epochs}.pth"
-torch.save(model.state_dict(), file_name)
-print("The model has been saved successfully!")
+average_loss = total_loss / len(test_dataloader)
+rmse_loss = torch.sqrt(torch.tensor(average_loss))
+inverse_loss = inverse_loss / len(test_dataloader)
+print(f"average_loss: {average_loss:.4f}")
+print(f"RMSE Loss: {rmse_loss.item():.4f}")
+print(f"归一化前总loss: {inverse_loss.item():.4f}")
+print(f"MAE SBP: {np.mean(MAE_SBP):.4f}")
+print(f"MSE SBP: {np.mean(MSE_SBP):.4f}")
+print(f"SD_SBP: {np.mean(SD_SBP):.4f}")
+print(f"MAE DBP: {np.mean(MAE_DBP):.4f}")
+print(f"MSE DBP: {np.mean(MSE_DBP):.4f}")
+print(f"SD_DBP: {np.mean(SD_DBP):.4f}")
+
+print(f"SBP5: {np.mean(SBP5)*100:.4f}%, SBP10: {np.mean(SBP10)*100:.4f}%, SBP15: {np.mean(SBP15)*100:.4f}%")
+print(f"DBP5: {np.mean(DBP5)*100:.4f}%, DBP10: {np.mean(DBP10)*100:.4f}%, DBP15: {np.mean(DBP15)*100:.4f}%")
