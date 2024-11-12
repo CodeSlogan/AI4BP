@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 from data_process.DataModule import DataModule2
 from datetime import datetime
-from model.medformer.Medformer import Medformer
+from model.bpformer.BPformer import BPformer
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -168,7 +168,7 @@ input1_scaler, input2_scaler, output_scaler, train_dataloader, test_dataloader =
 print("Load data done!")
 
 # Initialize model
-model = Medformer(args).to(device)
+model = BPformer(args).to(device)
 # 超参数
 num_epochs = args.train_epochs
 learning_rate = args.learning_rate
@@ -201,7 +201,12 @@ for epoch in range(num_epochs):
 
     print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}")
 
+    if epoch and epoch % 50 == 0:
+        file_name = f"model/param/bpformer_{loss}_epoch{epoch}.pth"
+        torch.save(model.state_dict(), file_name)
+        print(f"{file_name} has saved succesfully!")
+
 current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-file_name = f"model/param/medformer_{current_time}_epoch{num_epochs}.pth"
+file_name = f"model/param/bpformer_{current_time}_epoch{num_epochs}.pth"
 torch.save(model.state_dict(), file_name)
 print("The model has been saved successfully!")
