@@ -21,6 +21,8 @@ def calculate_batch_errors(preds, true):
     mse_dbp = []
     all_peak_errors = []
     all_trough_errors = []
+    pos_id = []
+    neg_id = []
 
     for i in range(batch_size):
         sbp, dbp = find_sbp_dbp(true[i])
@@ -37,6 +39,11 @@ def calculate_batch_errors(preds, true):
         mse_sbp.append(mse_p)
         mae_dbp.append(mae_t)
         mse_dbp.append(mse_t)
+        if mae_p < 2 and mae_t < 2:
+            pos_id.append(i)
+        if mae_p > 8 and mae_t > 8:
+            neg_id.append(i)
+
 
     sd_peaks = np.std(all_peak_errors) if all_peak_errors else np.nan
     sd_troughs = np.std(all_trough_errors) if all_trough_errors else np.nan
@@ -46,7 +53,7 @@ def calculate_batch_errors(preds, true):
     trough_percentages = [np.mean(np.array(all_trough_errors) <= thresh) for thresh in thresholds]
 
     return np.mean(mae_sbp), np.mean(mse_sbp), np.mean(mae_dbp), np.mean(
-        mse_dbp), sd_peaks, sd_troughs, peak_percentages, trough_percentages
+        mse_dbp), sd_peaks, sd_troughs, peak_percentages, trough_percentages, pos_id, neg_id
 
 
 def mse_loss(y_true, y_pred):
