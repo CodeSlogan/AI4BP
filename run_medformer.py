@@ -176,7 +176,7 @@ learning_rate = args.learning_rate
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-is_train = False
+is_train = True
 
 if is_train:
     # 训练模型
@@ -194,7 +194,6 @@ if is_train:
             batch_inputs = batch_inputs.permute(0, 2, 1)
 
             outputs = model(batch_inputs)
-            # outputs = outputs.squeeze(2)
 
             loss = criterion(outputs, batch_targets)
 

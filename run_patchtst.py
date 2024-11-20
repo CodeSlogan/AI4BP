@@ -11,6 +11,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 parser = argparse.ArgumentParser()
 # Dataset and dataloader
+parser.add_argument('--seq_len', type=int, default=1024, help='sequence length')
 parser.add_argument('--context_points', type=int, default=1024, help='sequence length')
 parser.add_argument('--target_points', type=int, default=1024, help='forecast horizon')
 parser.add_argument('--batch_size', type=int, default=64, help='batch size')
@@ -72,7 +73,7 @@ learning_rate = args.lr
 criterion = nn.MSELoss(reduction='mean')
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-is_train = False
+is_train = True
 if is_train:
     # 训练模型
     for epoch in range(num_epochs):
@@ -89,8 +90,6 @@ if is_train:
             batch_targets = batch_targets.to(device)
 
             outputs = model(batch)
-            outputs = outputs.squeeze(1)
-
             loss = criterion(outputs, batch_targets)
 
             optimizer.zero_grad()

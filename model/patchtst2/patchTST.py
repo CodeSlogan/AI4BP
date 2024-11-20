@@ -60,6 +60,7 @@ class PatchTST(nn.Module):
         """
         z = self.backbone(z)  # z: [bs x nvars x d_model x num_patch]
         z = self.head(z)
+        z = z.squeeze(1)
         # z: [bs x target_dim x nvars] for prediction
         #    [bs x target_dim] for regression
         #    [bs x target_dim] for classification

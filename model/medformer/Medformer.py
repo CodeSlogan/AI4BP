@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .Medformer_EncDec import Decoder, EncoderLayer, Encoder
+from .Medformer_EncDec import EncoderLayer, Encoder
 from .SelfAttention_Family import MedformerLayer, AttentionLayer, FullAttention
 from .Embed import ListPatchEmbedding
 import numpy as np
