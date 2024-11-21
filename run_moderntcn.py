@@ -102,7 +102,7 @@ print("Load data done!")
 
 # Initialize model
 model = Model(args).to(device)
-model = nn.DataParallel(model, device_ids=[0, 1, 2, 3])
+# model = nn.DataParallel(model, device_ids=[0, 1, 2, 3])
 # 超参数
 num_epochs = args.train_epochs
 learning_rate = args.learning_rate
@@ -110,7 +110,7 @@ learning_rate = args.learning_rate
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-is_train = False
+is_train = True
 if is_train:
     # 训练模型
     for epoch in range(num_epochs):

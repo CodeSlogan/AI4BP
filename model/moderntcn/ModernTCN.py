@@ -237,22 +237,7 @@ class ModernTCN(nn.Module):
         self.patch_stride = patch_stride
         self.downsample_ratio = downsample_ratio
 
-        if freq == 'h':
-            time_feature_num = 4
-        elif freq == 't':
-            time_feature_num = 5
-        else:
-            raise NotImplementedError("time_feature_num should be 4 or 5")
-
-        self.te_patch = nn.Sequential(
-
-            nn.Conv1d(time_feature_num, time_feature_num, kernel_size=patch_size, stride=patch_stride,
-                      groups=time_feature_num),
-            nn.Conv1d(time_feature_num, dims[0], kernel_size=1, stride=1, groups=1),
-            nn.BatchNorm1d(dims[0]))
-
         # backbone
-
         self.num_stage = len(num_blocks)
         self.stages = nn.ModuleList()
         for stage_idx in range(self.num_stage):
@@ -261,26 +246,6 @@ class ModernTCN(nn.Module):
                           dw_model=dw_dims[stage_idx], nvars=nvars, small_kernel_merged=small_kernel_merged,
                           drop=backbone_dropout)
             self.stages.append(layer)
-
-        # Multi scale fusing (if needed)
-        self.use_multi_scale = use_multi_scale
-        self.up_sample_ratio = downsample_ratio
-
-        self.lat_layer = nn.ModuleList()
-        self.smooth_layer = nn.ModuleList()
-        self.up_sample_conv = nn.ModuleList()
-        for i in range(self.num_stage):
-            align_dim = dims[-1]
-            lat = nn.Conv1d(dims[i], align_dim, kernel_size=1,
-                            stride=1)
-            self.lat_layer.append(lat)
-            smooth = nn.Conv1d(align_dim, align_dim, kernel_size=3, stride=1, padding=1)
-            self.smooth_layer.append(smooth)
-
-            up_conv = nn.Sequential(
-                nn.ConvTranspose1d(align_dim, align_dim, kernel_size=self.up_sample_ratio, stride=self.up_sample_ratio),
-                nn.BatchNorm1d(align_dim))
-            self.up_sample_conv.append(up_conv)
 
         # head
         patch_num = seq_len // patch_stride
