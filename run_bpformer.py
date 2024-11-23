@@ -208,7 +208,7 @@ if is_train:
     torch.save(model.state_dict(), file_name)
     print("The model has been saved successfully!")
 else:
-    model.load_state_dict(torch.load('model/param'))
+    model.load_state_dict(torch.load('model/param/medformer_20241123_142657_epoch800.pth'))
 
     model.eval()  # 设置模型为评估模式
     total_loss = 0
