@@ -6,6 +6,7 @@ from datetime import datetime
 from model.bpformer.BPformer import BPformer
 import argparse
 from utils.eval_func import *
+from model.moderntcn.utils.str2bool import str2bool
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -35,10 +36,10 @@ parser.add_argument(
 # parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='location of model checkpoints')
 
 # forecasting task
-parser.add_argument("--seq_len", type=int, default=500, help="input sequence length")
+parser.add_argument("--seq_len", type=int, default=350, help="input sequence length")
 parser.add_argument("--label_len", type=int, default=0, help="start token length")
 parser.add_argument(
-    "--pred_len", type=int, default=500, help="prediction sequence length"
+    "--pred_len", type=int, default=350, help="prediction sequence length"
 )
 parser.add_argument(
     "--seasonal_patterns", type=str, default="Monthly", help="subset for M4"
@@ -117,6 +118,23 @@ parser.add_argument(
     help="a comma-seperated list of augmentation types (none, jitter or scale). Append numbers to specify the strength of the augmentation, e.g., jitter0.1",
 )
 
+#ModernTCN
+parser.add_argument('--stem_ratio', type=int, default=6, help='stem ratio')
+parser.add_argument('--downsample_ratio', type=int, default=2, help='downsample_ratio')
+parser.add_argument('--ffn_ratio', type=int, default=8, help='ffn_ratio')
+parser.add_argument('--patch_size', type=int, default=16, help='the patch size')
+parser.add_argument('--patch_stride', type=int, default=8, help='the patch stride')
+
+parser.add_argument('--num_blocks', nargs='+',type=int, default=[1,1,1,1], help='num_blocks in each stage')
+parser.add_argument('--large_size', nargs='+',type=int, default=[51,51,51,51], help='big kernel size')
+parser.add_argument('--small_size', nargs='+',type=int, default=[5,5,5,5], help='small kernel size for structral reparam')
+parser.add_argument('--dims', nargs='+',type=int, default=[128,128,128,128], help='dmodels in each stage')
+parser.add_argument('--dw_dims', nargs='+',type=int, default=[256,256,256,256])
+
+parser.add_argument('--small_kernel_merged', type=str2bool, default=False, help='small_kernel has already merged or not')
+parser.add_argument('--call_structural_reparam', type=bool, default=False, help='structural_reparam after training')
+parser.add_argument('--use_multi_scale', type=str2bool, default=False, help='use_multi_scale fusion')
+
 # optimization
 # parser.add_argument('--num_workers', type=int, default=10, help='data loader num workers')
 parser.add_argument(
@@ -125,7 +143,7 @@ parser.add_argument(
 parser.add_argument("--itr", type=int, default=1, help="experiments times")
 parser.add_argument("--train_epochs", type=int, default=800, help="train epochs")
 parser.add_argument(
-    "--batch_size", type=int, default=128, help="batch size of train input data"
+    "--batch_size", type=int, default=16, help="batch size of train input data"
 )
 parser.add_argument(
     "--patience", type=int, default=3, help="early stopping patience"
@@ -204,11 +222,11 @@ if is_train:
         print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}")
 
     current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-    file_name = f"model/param/medformer_{current_time}_epoch{num_epochs}.pth"
+    file_name = f"model/param/bpformerv2_{current_time}_epoch{num_epochs}.pth"
     torch.save(model.state_dict(), file_name)
     print("The model has been saved successfully!")
 else:
-    model.load_state_dict(torch.load('model/param/medformer_20241123_142657_epoch800.pth'))
+    model.load_state_dict(torch.load('model/param/bpformerv2_20241123_142657_epoch800.pth'))
 
     model.eval()  # 设置模型为评估模式
     total_loss = 0

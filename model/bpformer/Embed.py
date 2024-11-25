@@ -19,7 +19,7 @@ class PositionalEmbedding(nn.Module):
 
         position = torch.arange(0, max_len).float().unsqueeze(1)
         div_term = (
-            torch.arange(0, d_model, 2).float() * -(math.log(10000.0) / d_model)
+                torch.arange(0, d_model, 2).float() * -(math.log(10000.0) / d_model)
         ).exp()
 
         pe[:, 0::2] = torch.sin(position * div_term)
@@ -30,6 +30,7 @@ class PositionalEmbedding(nn.Module):
 
     def forward(self, x):
         return self.pe[:, : x.size(1)]
+
 
 class LayerNorm(nn.Module):
     def __init__(self, channels, eps=1e-6, data_format="channels_last"):
@@ -152,7 +153,6 @@ class ReparamLargeKernelConv(nn.Module):
             self.__delattr__('small_conv')
 
 
-
 class Block(nn.Module):
     def __init__(self, large_size, small_size, dmodel, dff, nvars, small_kernel_merged=False, drop=0.1):
         super(Block, self).__init__()
@@ -231,58 +231,57 @@ class Stage(nn.Module):
         return x
 
 
-
 class CrossChannelTokenEmbedding(nn.Module):
-    def __init__(self, c_in, l_patch, d_model, stride=None):
+    def __init__(self, args, c_in, l_patch, d_model, stride=None):
         super().__init__()
         if stride is None:
             stride = l_patch
-        self.tokenConv = nn.Conv2d(
-            in_channels=1,
-            out_channels=d_model,  # 128
-            kernel_size=(c_in, l_patch),  # (2,8)
-            stride=(1, stride),  # (1,8)
-            padding=0,
-            padding_mode="circular",
-            bias=False,
-        )
+        # self.tokenConv = nn.Conv2d(
+        #     in_channels=1,
+        #     out_channels=d_model,  # 128
+        #     kernel_size=(c_in, l_patch),  # (2,8)
+        #     stride=(1, stride),  # (1,8)
+        #     padding=0,
+        #     padding_mode="circular",
+        #     bias=False,
+        # )
         self.downsample_layers = nn.ModuleList()
-        dims = [128,128,128,128]
+        dims = args.dims
         stem = nn.Sequential(
 
-            nn.Conv1d(1, 128, kernel_size=16, stride=8),
+            nn.Conv1d(1, args.dims[0], kernel_size=args.patch_size, stride=args.patch_stride),
             nn.BatchNorm1d(dims[0])
         )
         self.downsample_layers.append(stem)
         for i in range(3):
             downsample_layer = nn.Sequential(
                 nn.BatchNorm1d(dims[i]),
-                nn.Conv1d(dims[i], dims[i + 1], kernel_size=2, stride=2),
+                nn.Conv1d(dims[i], dims[i + 1], kernel_size=args.downsample_ratio, stride=args.downsample_ratio),
             )
             self.downsample_layers.append(downsample_layer)
-        self.patch_size = 16
-        self.patch_stride = 8
-        self.downsample_ratio = 2
+        self.patch_size = args.patch_size
+        self.patch_stride = args.patch_stride
+        self.downsample_ratio = args.downsample_ratio
         # backbone
 
-        num_blocks = [1,1,1,1]
-        large_size = [51,51,51,51]
-        small_size = [5,5,5,5]
-        dw_dims = [256,256,256,256]
+        num_blocks = args.num_blocks
+        large_size = args.large_size
+        small_size = args.small_size
+        dw_dims = args.dw_dims
         self.num_stage = len(num_blocks)
         self.stages = nn.ModuleList()
         for stage_idx in range(self.num_stage):
-            layer = Stage(8, num_blocks[stage_idx], large_size[stage_idx], small_size[stage_idx],
+            layer = Stage(args.ffn_ratio, num_blocks[stage_idx], large_size[stage_idx], small_size[stage_idx],
                           dmodel=dims[stage_idx],
-                          dw_model=dw_dims[stage_idx], nvars=2, small_kernel_merged=str2bool,
+                          dw_model=dw_dims[stage_idx], nvars=args.enc_in, small_kernel_merged=str2bool,
                           drop=0.2)
             self.stages.append(layer)
 
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(
-                    m.weight, mode="fan_in", nonlinearity="leaky_relu"
-                )
+        # for m in self.modules():
+        #     if isinstance(m, nn.Conv2d):
+        #         nn.init.kaiming_normal_(
+        #             m.weight, mode="fan_in", nonlinearity="leaky_relu"
+        #         )
 
     def forward(self, x):
         # x = self.tokenConv(x)
@@ -317,14 +316,15 @@ class CrossChannelTokenEmbedding(nn.Module):
 
 class ListPatchEmbedding(nn.Module):
     def __init__(
-        self,
-        enc_in,
-        d_model,
-        patch_len_list,
-        stride_list,
-        dropout,
-        augmentation=["none"],
-        single_channel=False,
+            self,
+            args,
+            enc_in,
+            d_model,
+            patch_len_list,
+            stride_list,
+            dropout,
+            augmentation=["none"],
+            single_channel=False,
     ):
         super().__init__()
         self.patch_len_list = patch_len_list
@@ -334,6 +334,7 @@ class ListPatchEmbedding(nn.Module):
 
         linear_layers = [
             CrossChannelTokenEmbedding(
+                args,
                 c_in=enc_in if not single_channel else 1,
                 l_patch=patch_len,
                 d_model=d_model,
@@ -360,7 +361,7 @@ class ListPatchEmbedding(nn.Module):
         x_list = []
         for padding, value_embedding in zip(self.paddings, self.value_embeddings):
             # x_new = padding(x).unsqueeze(1)  # (batch_size, 1, enc_in, seq_len+stride)
-            x_new = value_embedding(x)  # (batch_size, d_model, patch_num, 1)
+            x_new = value_embedding(x)  # (batch_size, d_model, 1, patch_num)
             x_new = x_new.squeeze().transpose(1, 2)  # (batch_size, patch_num, d_model)
             # Per patch augmentation
             aug_idx = random.randint(0, len(self.augmentation) - 1)

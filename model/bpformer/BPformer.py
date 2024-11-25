@@ -30,8 +30,11 @@ class BPformer(nn.Module):
             for patch_len, stride in zip(patch_len_list, stride_list)
         ]
         augmentations = configs.augmentations.split(",")
+        self.num_stage = len(configs.num_blocks)
+        self.patch_num = seq_len // configs.patch_stride
 
         self.enc_embedding = ListPatchEmbedding(
+            configs,
             configs.enc_in,
             configs.d_model,
             patch_len_list,
@@ -62,10 +65,11 @@ class BPformer(nn.Module):
             norm_layer=torch.nn.LayerNorm(configs.d_model),
         )
         # Decoder
+
         self.act = F.gelu
         self.dropout = nn.Dropout(configs.dropout)
         self.projection = nn.Linear(
-            24576,
+            configs.d_model * self.patch_num * 3.072,
             configs.pred_len,
         )
 
