@@ -26,6 +26,7 @@ parser.add_argument(
 parser.add_argument(
     "--target", type=str, default="OT", help="target feature in S or MS task"
 )
+
 parser.add_argument(
     "--freq",
     type=str,
