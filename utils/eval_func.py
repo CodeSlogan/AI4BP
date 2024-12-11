@@ -53,7 +53,7 @@ def calculate_batch_errors(preds, true):
     trough_percentages = [np.mean(np.array(all_trough_errors) <= thresh) for thresh in thresholds]
 
     return np.mean(mae_sbp), np.mean(mse_sbp), np.mean(mae_dbp), np.mean(
-        mse_dbp), sd_peaks, sd_troughs, peak_percentages, trough_percentages
+        mse_dbp), sd_peaks, sd_troughs, peak_percentages, trough_percentages, pos_id, neg_id
 
 
 def mse_loss(y_true, y_pred):

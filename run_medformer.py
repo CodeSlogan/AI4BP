@@ -1,11 +1,12 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from data_process.DataModule import DataModule2
+from data_process.DataModule import *
 from datetime import datetime
 from model.medformer.Medformer import Medformer
 import argparse
 from utils.eval_func import *
+import matplotlib.pyplot as plt
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -36,10 +37,10 @@ parser.add_argument(
 # parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='location of model checkpoints')
 
 # forecasting task
-parser.add_argument("--seq_len", type=int, default=1024, help="input sequence length")
+parser.add_argument("--seq_len", type=int, default=450, help="input sequence length")
 parser.add_argument("--label_len", type=int, default=48, help="start token length")
 parser.add_argument(
-    "--pred_len", type=int, default=1024, help="prediction sequence length"
+    "--pred_len", type=int, default=450, help="prediction sequence length"
 )
 parser.add_argument(
     "--seasonal_patterns", type=str, default="Monthly", help="subset for M4"
@@ -165,7 +166,7 @@ parser.add_argument(
 args = parser.parse_args()
 print('args:', args)
 
-input1_scaler, input2_scaler, output_scaler, train_dataloader, test_dataloader = DataModule2(args)
+input1_scaler, input2_scaler, output_scaler, train_dataloader, test_dataloader = njuDataModule(args)
 print("Load data done!")
 
 # Initialize model
@@ -177,7 +178,7 @@ learning_rate = args.learning_rate
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-is_train = True
+is_train = False
 
 if is_train:
     # 训练模型
@@ -209,7 +210,7 @@ if is_train:
     torch.save(model.state_dict(), file_name)
     print("The model has been saved successfully!")
 else:
-    model.load_state_dict(torch.load('model/param/medformer_20241023_035325_epoch800.pth'))
+    model.load_state_dict(torch.load('model/param/medformer_predlen450.pth'))
 
     model.eval()  # 设置模型为评估模式
     total_loss = 0
@@ -219,8 +220,8 @@ else:
     SBP5, SBP10, SBP15 = [], [], []
     DBP5, DBP10, DBP15 = [], [], []
 
-    # cnt = 0
-    # cnt1 = 0
+    cnt = 0
+    cnt1 = 0
     with (torch.no_grad()):  # 在评估过程中不需要计算梯度
         for batch_inputs, batch_targets in test_dataloader:
             batch_inputs = batch_inputs.to(device)
@@ -239,7 +240,7 @@ else:
             batch_targets_inver = output_scaler.inverse_transform(batch_targets.cpu())
             inverse_loss += mse_loss(outputs_inver, batch_targets_inver)
 
-            mae_sbp, mse_sbp, mae_dbp, mse_dbp, sd_peaks, sd_troughs, peak_percentages, trough_percentages = calculate_batch_errors(
+            mae_sbp, mse_sbp, mae_dbp, mse_dbp, sd_peaks, sd_troughs, peak_percentages, trough_percentages, pos_id, neg_id = calculate_batch_errors(
                 outputs_inver, batch_targets_inver)
             MAE_SBP.append(mae_sbp)
             MSE_SBP.append(mse_sbp)
@@ -254,72 +255,72 @@ else:
             DBP10.append(trough_percentages[1])
             DBP15.append(trough_percentages[2])
 
-            # batch_inputs = batch_inputs.permute(0, 2, 1).cpu()
-            # for i in pos_id:
-            #     fig, axs = plt.subplots(1, 3, figsize=(18, 5))
-            #
-            #     # 绘制PPG
-            #     axs[0].plot(batch_inputs[i][0], label='PPG')
-            #     axs[0].set_title('PPG Signal')
-            #     axs[0].set_xlabel('Time')
-            #     axs[0].set_ylabel('Amplitude')
-            #     axs[0].legend()
-            #
-            #     # 绘制ECG
-            #     axs[1].plot(batch_inputs[i][1], label='ECG')
-            #     axs[1].set_title('ECG Signal')
-            #     axs[1].set_xlabel('Time')
-            #     axs[1].set_ylabel('Amplitude')
-            #     axs[1].legend()
-            #
-            #     # 绘制ABP_pred和ABP_true
-            #     axs[2].plot(batch_targets_inver[i], label='True ABP', color='blue')
-            #     axs[2].plot(outputs_inver[i], label='Predicted ABP', color='red')
-            #     axs[2].set_title('ABP Signal')
-            #     axs[2].set_xlabel('Time')
-            #     axs[2].set_ylabel('Blood Pressure (mmHg)')
-            #     axs[2].legend()
-            #
-            #     # 调整布局以避免标签重叠
-            #     plt.tight_layout()
-            #
-            #     # 保存图片到本地
-            #     plt.savefig(f'data/pos/pos_{cnt}.png')
-            #     plt.close()
-            #     cnt += 1
-            #
-            # for i in neg_id:
-            #     fig, axs = plt.subplots(1, 3, figsize=(18, 5))
-            #
-            #     # 绘制PPG
-            #     axs[0].plot(batch_inputs[i][0], label='PPG')
-            #     axs[0].set_title('PPG Signal')
-            #     axs[0].set_xlabel('Time')
-            #     axs[0].set_ylabel('Amplitude')
-            #     axs[0].legend()
-            #
-            #     # 绘制ECG
-            #     axs[1].plot(batch_inputs[i][1], label='ECG')
-            #     axs[1].set_title('ECG Signal')
-            #     axs[1].set_xlabel('Time')
-            #     axs[1].set_ylabel('Amplitude')
-            #     axs[1].legend()
-            #
-            #     # 绘制ABP_pred和ABP_true
-            #     axs[2].plot(batch_targets_inver[i], label='True ABP', color='blue')
-            #     axs[2].plot(outputs_inver[i], label='Predicted ABP', color='red')
-            #     axs[2].set_title('ABP Signal')
-            #     axs[2].set_xlabel('Time')
-            #     axs[2].set_ylabel('Blood Pressure (mmHg)')
-            #     axs[2].legend()
-            #
-            #     # 调整布局以避免标签重叠
-            #     plt.tight_layout()
-            #
-            #     # 保存图片到本地
-            #     plt.savefig(f'data/neg/neg_{cnt1}.png')
-            #     plt.close()
-            #     cnt1 += 1
+            batch_inputs = batch_inputs.permute(0, 2, 1).cpu()
+            for i in pos_id:
+                fig, axs = plt.subplots(3, 1, figsize=(18, 10))
+
+                # 绘制PPG
+                axs[0].plot(batch_inputs[i][0], label='PPG')
+                axs[0].set_title('PPG Signal')
+                axs[0].set_xlabel('Time')
+                axs[0].set_ylabel('Amplitude')
+                axs[0].legend()
+
+                # 绘制ECG
+                axs[1].plot(batch_inputs[i][1], label='ECG')
+                axs[1].set_title('ECG Signal')
+                axs[1].set_xlabel('Time')
+                axs[1].set_ylabel('Amplitude')
+                axs[1].legend()
+
+                # 绘制ABP_pred和ABP_true
+                axs[2].plot(batch_targets_inver[i], label='True ABP', color='blue')
+                axs[2].plot(outputs_inver[i], label='Predicted ABP', color='red')
+                axs[2].set_title('ABP Signal')
+                axs[2].set_xlabel('Time')
+                axs[2].set_ylabel('Blood Pressure (mmHg)')
+                axs[2].legend()
+
+                # 调整布局以避免标签重叠
+                plt.tight_layout()
+
+                # 保存图片到本地
+                plt.savefig(f'data/pos/pos_{cnt}.png')
+                plt.close()
+                cnt += 1
+
+            for i in neg_id:
+                fig, axs = plt.subplots(3, 1, figsize=(12, 8))
+
+                # 绘制PPG
+                axs[0].plot(batch_inputs[i][0], label='PPG')
+                axs[0].set_title('PPG Signal')
+                axs[0].set_xlabel('Time')
+                axs[0].set_ylabel('Amplitude')
+                axs[0].legend()
+
+                # 绘制ECG
+                axs[1].plot(batch_inputs[i][1], label='ECG')
+                axs[1].set_title('ECG Signal')
+                axs[1].set_xlabel('Time')
+                axs[1].set_ylabel('Amplitude')
+                axs[1].legend()
+
+                # 绘制ABP_pred和ABP_true
+                axs[2].plot(batch_targets_inver[i], label='True ABP', color='blue')
+                axs[2].plot(outputs_inver[i], label='Predicted ABP', color='red')
+                axs[2].set_title('ABP Signal')
+                axs[2].set_xlabel('Time')
+                axs[2].set_ylabel('Blood Pressure (mmHg)')
+                axs[2].legend()
+
+                # 调整布局以避免标签重叠
+                plt.tight_layout()
+
+                # 保存图片到本地
+                plt.savefig(f'data/neg/neg1_{cnt1}.png')
+                plt.close()
+                cnt1 += 1
 
     average_loss = total_loss / len(test_dataloader)
     rmse_loss = torch.sqrt(torch.tensor(average_loss))

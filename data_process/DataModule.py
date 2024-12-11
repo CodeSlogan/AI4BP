@@ -22,10 +22,10 @@ def DataModule():
     normalized_inputs = input_scaler.fit_transform(inputs)
     normalized_outputs = output_scaler.fit_transform(outputs)
 
-
     # 划分数据集，按7:3的比例
-    train_inputs, test_inputs, train_outputs, test_outputs = train_test_split(normalized_inputs, normalized_outputs, test_size=0.3,
-                                                                            random_state=42)
+    train_inputs, test_inputs, train_outputs, test_outputs = train_test_split(normalized_inputs, normalized_outputs,
+                                                                              test_size=0.3,
+                                                                              random_state=42)
 
     # 转换为Tensor
     train_inputs = torch.tensor(train_inputs, dtype=torch.float32, device=device)
@@ -102,5 +102,60 @@ def DataModule2(config, only_ppg=False):
     return input1_scaler, input2_scaler, output_scaler, train_loader, test_loader
 
 
+def njuDataModule(config, only_ppg=False):
+    seq_len = config.seq_len
+    batch_size = config.batch_size
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    file_path = './data/real_data/raw_data/Zhang, Zhaonan02.csv'
+    data = pd.read_csv(file_path, header=0)
+    data.columns = ['ppg1', 'xxx', 'ecg', 'abp']
+
+    ppgs = []
+    abps = []
+    ecgs = []
+
+    ppg = data['ppg1'].values.reshape(-1, 1)
+    abp = data['abp'].values.reshape(-1, 1)
+    ecg = data['ecg'].values.reshape(-1, 1)
+
+    input1_scaler, input2_scaler, output_scaler = (
+        MinMaxScaler(feature_range=(0, 1)), MinMaxScaler(feature_range=(0, 1)), MinMaxScaler(feature_range=(0, 1)))
+    ppg = input1_scaler.fit_transform(ppg).flatten()
+    ecg = input2_scaler.fit_transform(ecg).flatten()
+    abp = output_scaler.fit_transform(abp).flatten()
+
+    num_segments = len(ppg) // seq_len
+
+    for j in range(num_segments):
+        ppg_segment = ppg[j * seq_len:(j + 1) * seq_len]
+        ppgs.append(np.array(ppg_segment))
+
+        abp_segment = abp[j * seq_len:(j + 1) * seq_len]
+        abps.append(np.array(abp_segment))
+
+        ecg_segment = ecg[j * seq_len:(j + 1) * seq_len]
+        ecgs.append(np.array(ecg_segment))
+
+    ppgs = np.array(ppgs)
+    abps = np.array(abps)
+    ecgs = np.array(ecgs)
+
+    train_input1, test_input1, train_input2, test_input2, train_output, test_output = train_test_split(
+        ppgs, ecgs, abps, test_size=0.3, random_state=42)
+
+    if not only_ppg:
+        train_dataset = SequenceDataset(train_input1, train_input2, train_output)
+        test_dataset = SequenceDataset(test_input1, test_input2, test_output)
+    else:
+        train_dataset = SequenceDatasetPPG(train_input1, train_input2, train_output)
+        test_dataset = SequenceDatasetPPG(test_input1, test_input2, test_output)
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+
+    return input1_scaler, input2_scaler, output_scaler, train_loader, test_loader
+
+
 if __name__ == '__main__':
-    DataModule2()
+    njuDataModule()

@@ -69,7 +69,7 @@ class BPformer(nn.Module):
         self.act = F.gelu
         self.dropout = nn.Dropout(configs.dropout)
         self.projection = nn.Linear(
-            configs.d_model * self.patch_num * 3.072,
+            24576,
             configs.pred_len,
         )
 

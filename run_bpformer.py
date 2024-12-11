@@ -36,10 +36,10 @@ parser.add_argument(
 # parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='location of model checkpoints')
 
 # forecasting task
-parser.add_argument("--seq_len", type=int, default=350, help="input sequence length")
+parser.add_argument("--seq_len", type=int, default=500, help="input sequence length")
 parser.add_argument("--label_len", type=int, default=0, help="start token length")
 parser.add_argument(
-    "--pred_len", type=int, default=350, help="prediction sequence length"
+    "--pred_len", type=int, default=500, help="prediction sequence length"
 )
 parser.add_argument(
     "--seasonal_patterns", type=str, default="Monthly", help="subset for M4"
@@ -194,7 +194,7 @@ learning_rate = args.learning_rate
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-is_train = True
+is_train = False
 
 if is_train:
     # 训练模型
@@ -226,7 +226,7 @@ if is_train:
     torch.save(model.state_dict(), file_name)
     print("The model has been saved successfully!")
 else:
-    model.load_state_dict(torch.load('model/param/bpformerv2_20241123_142657_epoch800.pth'))
+    model.load_state_dict(torch.load('model/param/bpformerv2_500.pth'), strict=False)
 
     model.eval()  # 设置模型为评估模式
     total_loss = 0
