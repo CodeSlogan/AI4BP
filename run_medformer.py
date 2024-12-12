@@ -166,7 +166,7 @@ parser.add_argument(
 args = parser.parse_args()
 print('args:', args)
 
-input1_scaler, input2_scaler, output_scaler, train_dataloader, test_dataloader = njuDataModule(args)
+input1_scaler, input2_scaler, output_scaler, train_dataloader, test_dataloader = DataModule2(args)
 print("Load data done!")
 
 # Initialize model
