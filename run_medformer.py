@@ -37,10 +37,10 @@ parser.add_argument(
 # parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='location of model checkpoints')
 
 # forecasting task
-parser.add_argument("--seq_len", type=int, default=450, help="input sequence length")
+parser.add_argument("--seq_len", type=int, default=500, help="input sequence length")
 parser.add_argument("--label_len", type=int, default=48, help="start token length")
 parser.add_argument(
-    "--pred_len", type=int, default=450, help="prediction sequence length"
+    "--pred_len", type=int, default=500, help="prediction sequence length"
 )
 parser.add_argument(
     "--seasonal_patterns", type=str, default="Monthly", help="subset for M4"
@@ -127,7 +127,7 @@ parser.add_argument(
 parser.add_argument("--itr", type=int, default=1, help="experiments times")
 parser.add_argument("--train_epochs", type=int, default=800, help="train epochs")
 parser.add_argument(
-    "--batch_size", type=int, default=64, help="batch size of train input data"
+    "--batch_size", type=int, default=128, help="batch size of train input data"
 )
 parser.add_argument(
     "--patience", type=int, default=3, help="early stopping patience"
@@ -178,7 +178,7 @@ learning_rate = args.learning_rate
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-is_train = False
+is_train = True
 
 if is_train:
     # 训练模型

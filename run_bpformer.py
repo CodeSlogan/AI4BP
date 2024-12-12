@@ -194,7 +194,7 @@ learning_rate = args.learning_rate
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-is_train = False
+is_train = True
 
 if is_train:
     # 训练模型
