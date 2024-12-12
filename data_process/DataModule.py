@@ -1,6 +1,6 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from torch.utils.data import DataLoader
 from .CustomDataset import *
 import scipy.io as sio
@@ -80,7 +80,8 @@ def DataModule2(config, only_ppg=False):
     abps = np.array(abps)
     ecgs = np.array(ecgs)
 
-    input1_scaler, input2_scaler, output_scaler = MinMaxScaler(), MinMaxScaler(), MinMaxScaler()
+    input1_scaler, input2_scaler, output_scaler = (
+        MinMaxScaler(feature_range=(0, 1)), StandardScaler(), MinMaxScaler(feature_range=(0, 1)))
 
     ppgs = input1_scaler.fit_transform(ppgs)
     ecgs = input2_scaler.fit_transform(ecgs)
@@ -120,7 +121,7 @@ def njuDataModule(config, only_ppg=False):
     ecg = data['ecg'].values.reshape(-1, 1)
 
     input1_scaler, input2_scaler, output_scaler = (
-        MinMaxScaler(feature_range=(0, 1)), MinMaxScaler(feature_range=(0, 1)), MinMaxScaler(feature_range=(0, 1)))
+        MinMaxScaler(feature_range=(0, 1)), StandardScaler(), MinMaxScaler(feature_range=(0, 1)))
     ppg = input1_scaler.fit_transform(ppg).flatten()
     ecg = input2_scaler.fit_transform(ecg).flatten()
     abp = output_scaler.fit_transform(abp).flatten()
