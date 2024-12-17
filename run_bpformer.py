@@ -5,6 +5,8 @@ from data_process.DataModule import DataModule2
 from datetime import datetime
 from model.bpformer.BPformer import BPformer
 import argparse
+
+from utils.EarlyStopping import EarlyStopping
 from utils.eval_func import *
 from model.moderntcn.utils.str2bool import str2bool
 
@@ -18,34 +20,13 @@ parser.add_argument(
         default="long_term_forecast",
         help="task name, options:[long_term_forecast, short_term_forecast, imputation, classification, anomaly_detection]",
     )
-parser.add_argument(
-    "--features",
-    type=str,
-    default="M",
-    help="forecasting task, options:[M, S, MS]; M:multivariate predict multivariate, S:univariate predict univariate, MS:multivariate predict univariate",
-)
-parser.add_argument(
-    "--target", type=str, default="OT", help="target feature in S or MS task"
-)
-parser.add_argument(
-    "--freq",
-    type=str,
-    default="h",
-    help="freq for time features encoding, options:[s:secondly, t:minutely, h:hourly, d:daily, b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min or 3h",
-)
+
 # parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='location of model checkpoints')
 
 # forecasting task
 parser.add_argument("--seq_len", type=int, default=500, help="input sequence length")
-parser.add_argument("--label_len", type=int, default=0, help="start token length")
 parser.add_argument(
     "--pred_len", type=int, default=500, help="prediction sequence length"
-)
-parser.add_argument(
-    "--seasonal_patterns", type=str, default="Monthly", help="subset for M4"
-)
-parser.add_argument(
-    "--inverse", action="store_true", help="inverse output data", default=False
 )
 
 # inputation task
@@ -143,10 +124,16 @@ parser.add_argument(
 parser.add_argument("--itr", type=int, default=1, help="experiments times")
 parser.add_argument("--train_epochs", type=int, default=800, help="train epochs")
 parser.add_argument(
-    "--batch_size", type=int, default=16, help="batch size of train input data"
+    "--batch_size", type=int, default=128, help="batch size of train input data"
 )
 parser.add_argument(
-    "--patience", type=int, default=3, help="early stopping patience"
+    "--patience", type=int, default=20, help="early stopping patience"
+)
+parser.add_argument(
+    "--min_delta", type=int, default=0, help="early stopping patience"
+)
+parser.add_argument(
+    "--open_es", type=bool, default=True, help="open early stopping patience"
 )
 parser.add_argument(
     "--learning_rate", type=float, default=0.0001, help="optimizer learning rate"
@@ -182,7 +169,7 @@ parser.add_argument(
 args = parser.parse_args()
 print('args:', args)
 
-input1_scaler, input2_scaler, output_scaler, train_dataloader, test_dataloader = DataModule2(args)
+input1_scaler, input2_scaler, output_scaler, train_dataloader, val_dataloader, test_dataloader = DataModule2(args)
 print("Load data done!")
 
 # Initialize model
@@ -193,6 +180,7 @@ learning_rate = args.learning_rate
 
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+es = EarlyStopping(patience=args.patience, min_delta=args.min_delta)
 
 is_train = True
 
@@ -219,7 +207,28 @@ if is_train:
             loss.backward()
             optimizer.step()
 
-        print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}")
+        model.eval()
+        val_loss = 0
+        with torch.no_grad():
+            for val_batch_inputs, val_batch_targets in val_dataloader:
+                val_batch_inputs = val_batch_inputs.to(device)
+                val_batch_targets = val_batch_targets.to(device)
+                val_batch_inputs = val_batch_inputs.permute(0, 2, 1)
+                val_outputs = model(val_batch_inputs)
+                val_loss += criterion(val_outputs, val_batch_targets).item()
+            val_loss /= len(val_dataloader)
+            print(f"Epoch [{epoch + 1}/{num_epochs}], Train Loss: {loss.item():.4f}, Val Loss: {val_loss:.4f}")
+
+            es(val_loss)
+            if es.counter == 0 and epoch > 200:
+                # 保存当前最佳模型状态
+                current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+                file_name = f"model/param/medformer_{current_time}_valLoss{val_loss}_epoch{epoch + 1}.pth"
+                torch.save(model.state_dict(), file_name)
+
+            # 判断是否满足早停条件
+            if es.early_stop and args.open_es:
+                break
 
     current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
     file_name = f"model/param/bpformerv2_{current_time}_epoch{num_epochs}.pth"

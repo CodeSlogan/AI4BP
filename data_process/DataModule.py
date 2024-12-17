@@ -1,3 +1,5 @@
+import os
+
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
@@ -5,6 +7,7 @@ from torch.utils.data import DataLoader
 from .CustomDataset import *
 import scipy.io as sio
 import numpy as np
+from scipy.signal import butter, lfilter
 
 def DataModule():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -52,33 +55,48 @@ def DataModule2(config, only_ppg=False):
     batch_size = config.batch_size
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    mat_file = './data/data2/Part_1.mat'
-    data = sio.loadmat(mat_file)
+    folder_path = './data/data2/'
+    all_ppgs = []
+    all_abps = []
+    all_ecgs = []
+    tot_segments = 0
 
-    ppgs = []
-    abps = []
-    ecgs = []
+    for file_name in os.listdir(folder_path):
+        if file_name.endswith('.mat'):
+            mat_file = os.path.join(folder_path, file_name)
+            data = sio.loadmat(mat_file)
 
-    for i in range(len(data['p'][0])):
-        ppg = data['p'][0][i][0]
-        abp = data['p'][0][i][1]
-        ecg = data['p'][0][i][2]
+            ppgs = []
+            abps = []
+            ecgs = []
 
-        num_segments = len(ppg) // seq_len
+            for i in range(len(data['p'][0])):
+                ppg = data['p'][0][i][0]
+                abp = data['p'][0][i][1]
+                ecg = data['p'][0][i][2]
 
-        for j in range(num_segments):
-            ppg_segment = ppg[j * seq_len:(j + 1) * seq_len]
-            ppgs.append(np.array(ppg_segment))
+                num_segments = len(ppg) // seq_len
+                tot_segments += num_segments
 
-            abp_segment = abp[j * seq_len:(j + 1) * seq_len]
-            abps.append(np.array(abp_segment))
+                for j in range(num_segments):
+                    ppg_segment = ppg[j * seq_len:(j + 1) * seq_len]
+                    ppgs.append(np.array(ppg_segment))
 
-            ecg_segment = ecg[j * seq_len:(j + 1) * seq_len]
-            ecgs.append(np.array(ecg_segment))
+                    abp_segment = abp[j * seq_len:(j + 1) * seq_len]
+                    abps.append(np.array(abp_segment))
 
-    ppgs = np.array(ppgs)
-    abps = np.array(abps)
-    ecgs = np.array(ecgs)
+                    ecg_segment = ecg[j * seq_len:(j + 1) * seq_len]
+                    ecgs.append(np.array(ecg_segment))
+
+            # 将当前文件提取的数据合并到总的数据列表中
+            all_ppgs.extend(ppgs)
+            all_abps.extend(abps)
+            all_ecgs.extend(ecgs)
+
+    print(f"The {tot_segments} of {seq_len} length segments have been loaded!")
+    ppgs = np.array(all_ppgs)
+    abps = np.array(all_abps)
+    ecgs = np.array(all_ecgs)
 
     input1_scaler, input2_scaler, output_scaler = (
         MinMaxScaler(feature_range=(0, 1)), StandardScaler(), MinMaxScaler(feature_range=(0, 1)))
@@ -87,20 +105,26 @@ def DataModule2(config, only_ppg=False):
     ecgs = input2_scaler.fit_transform(ecgs)
     abps = output_scaler.fit_transform(abps)
 
-    train_input1, test_input1, train_input2, test_input2, train_output, test_output = train_test_split(
-        ppgs, ecgs, abps, test_size=0.3, random_state=42)
+    tot_train_input1, test_input1, tot_train_input2, test_input2, tot_train_output, test_output = train_test_split(
+        ppgs, ecgs, abps, test_size=0.2, random_state=2025)
+
+    train_input1, val_input1, train_input2, val_input2, train_output, val_output = train_test_split(
+        tot_train_input1, tot_train_input2, tot_train_output, test_size=0.25, random_state=2025)
 
     if not only_ppg:
         train_dataset = SequenceDataset(train_input1, train_input2, train_output)
+        val_dataset = SequenceDataset(val_input1, val_input2, val_output)
         test_dataset = SequenceDataset(test_input1, test_input2, test_output)
     else:
         train_dataset = SequenceDatasetPPG(train_input1, train_input2, train_output)
+        val_dataset = SequenceDatasetPPG(val_input1, val_input2, val_output)
         test_dataset = SequenceDatasetPPG(test_input1, test_input2, test_output)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
-    return input1_scaler, input2_scaler, output_scaler, train_loader, test_loader
+    return input1_scaler, input2_scaler, output_scaler, train_loader, val_loader, test_loader
 
 
 def njuDataModule(config, only_ppg=False):
@@ -108,9 +132,21 @@ def njuDataModule(config, only_ppg=False):
     batch_size = config.batch_size
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    file_path = './data/real_data/raw_data/Zhang, Zhaonan02.csv'
-    data = pd.read_csv(file_path, header=0)
-    data.columns = ['ppg1', 'xxx', 'ecg', 'abp']
+    folder_path = './data/real_data/raw_data/'
+
+    file_paths = []
+
+    for root, dirs, files in os.walk(folder_path):
+        for file in files:
+            if file.endswith('.csv'):
+                file_paths.append(os.path.join(root, file))
+
+    data = pd.DataFrame()
+
+    for file_path in file_paths:
+        temp_data = pd.read_csv(file_path, header=0)
+        temp_data.columns = ['ppg1', 'xxx', 'ecg', 'abp']
+        data = pd.concat([data, temp_data], ignore_index=True)
 
     ppgs = []
     abps = []
@@ -143,7 +179,7 @@ def njuDataModule(config, only_ppg=False):
     ecgs = np.array(ecgs)
 
     train_input1, test_input1, train_input2, test_input2, train_output, test_output = train_test_split(
-        ppgs, ecgs, abps, test_size=0.3, random_state=42)
+        ppgs, ecgs, abps, test_size=0.9, random_state=2025)
 
     if not only_ppg:
         train_dataset = SequenceDataset(train_input1, train_input2, train_output)
