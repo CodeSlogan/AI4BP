@@ -79,14 +79,16 @@ def DataModule2(config, only_ppg=False):
                 tot_segments += num_segments
 
                 for j in range(num_segments):
-                    ppg_segment = ppg[j * seq_len:(j + 1) * seq_len]
-                    ppgs.append(np.array(ppg_segment))
+                    ppg_segment = np.array(ppg[j * seq_len:(j + 1) * seq_len])
+                    abp_segment = np.array(abp[j * seq_len:(j + 1) * seq_len])
+                    ecg_segment = np.array(ecg[j * seq_len:(j + 1) * seq_len])
 
-                    abp_segment = abp[j * seq_len:(j + 1) * seq_len]
-                    abps.append(np.array(abp_segment))
-
-                    ecg_segment = ecg[j * seq_len:(j + 1) * seq_len]
-                    ecgs.append(np.array(ecg_segment))
+                    # 检查是否存在nan值
+                    if np.isnan(ppg_segment).any() or np.isnan(abp_segment).any() or np.isnan(ecg_segment).any():
+                        continue
+                    ppgs.append(ppg_segment)
+                    ecgs.append(ecg_segment)
+                    abps.append(abp_segment)
 
             # 将当前文件提取的数据合并到总的数据列表中
             all_ppgs.extend(ppgs)
@@ -97,6 +99,9 @@ def DataModule2(config, only_ppg=False):
     ppgs = np.array(all_ppgs)
     abps = np.array(all_abps)
     ecgs = np.array(all_ecgs)
+
+    if np.isnan(ppgs).any() or np.isnan(abps).any() or np.isnan(ecgs).any():
+        raise ValueError("The all_ppgs, all_abps or all_ecgs contains nan values! Program terminated.")
 
     input1_scaler, input2_scaler, output_scaler = (
         MinMaxScaler(feature_range=(0, 1)), StandardScaler(), MinMaxScaler(feature_range=(0, 1)))

@@ -106,6 +106,7 @@ parser.add_argument(
 )
 parser.add_argument("--itr", type=int, default=1, help="experiments times")
 parser.add_argument("--train_epochs", type=int, default=800, help="train epochs")
+parser.add_argument("--least_epochs", type=int, default=200, help="train epochs")
 parser.add_argument(
     "--batch_size", type=int, default=128, help="batch size of train input data"
 )
@@ -211,7 +212,7 @@ if is_train:
             print(f"Epoch [{epoch + 1}/{num_epochs}], Train Loss: {loss.item():.4f}, Val Loss: {val_loss:.4f}")
 
             es(val_loss)
-            if es.counter == 0 and epoch > 1:
+            if es.counter == 0 and epoch > args.least_epochs:
                 # 保存当前最佳模型状态
                 current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
                 file_name = f"model/param/medformer_{current_time}_valLoss{val_loss}_epoch{epoch + 1}.pth"
