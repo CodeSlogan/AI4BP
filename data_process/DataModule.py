@@ -184,7 +184,7 @@ def njuDataModule(config, only_ppg=False):
     ecgs = np.array(ecgs)
 
     train_input1, test_input1, train_input2, test_input2, train_output, test_output = train_test_split(
-        ppgs, ecgs, abps, test_size=0.9, random_state=2025)
+        ppgs, ecgs, abps, test_size=0.33, random_state=2025)
 
     if not only_ppg:
         train_dataset = SequenceDataset(train_input1, train_input2, train_output)

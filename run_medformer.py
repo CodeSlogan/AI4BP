@@ -120,6 +120,9 @@ parser.add_argument(
     "--open_es", type=bool, default=True, help="open early stopping patience"
 )
 parser.add_argument(
+    "--open_val", type=bool, default=False, help="open val"
+)
+parser.add_argument(
     "--learning_rate", type=float, default=0.0001, help="optimizer learning rate"
 )
 parser.add_argument("--des", type=str, default="test", help="exp description")
@@ -153,13 +156,14 @@ parser.add_argument(
 args = parser.parse_args()
 print('args:', args)
 
-input1_scaler, input2_scaler, output_scaler, train_dataloader, val_dataloader, test_dataloader = DataModule2(args)
+# input1_scaler, input2_scaler, output_scaler, train_dataloader, val_dataloader, test_dataloader = DataModule2(args)
+input1_scaler, input2_scaler, output_scaler, train_dataloader, test_dataloader = njuDataModule(args)
 print("Load data done!")
 
 # Initialize model
 model = Medformer(args).to(device)
 # 微调
-# model.load_state_dict(torch.load('model/param/medformer_500-new.pth'))
+model.load_state_dict(torch.load('model/param/medformer_66w.pth'))
 # # 冰结其它层参数
 # for param in model.parameters():
 #     param.requires_grad = False
@@ -199,35 +203,36 @@ if is_train:
             loss.backward()
             optimizer.step()
 
-        model.eval()
-        val_loss = 0
-        with torch.no_grad():
-            for val_batch_inputs, val_batch_targets in val_dataloader:
-                val_batch_inputs = val_batch_inputs.to(device)
-                val_batch_targets = val_batch_targets.to(device)
-                val_batch_inputs = val_batch_inputs.permute(0, 2, 1)
-                val_outputs = model(val_batch_inputs)
-                val_loss += criterion(val_outputs, val_batch_targets).item()
-            val_loss /= len(val_dataloader)
-            print(f"Epoch [{epoch + 1}/{num_epochs}], Train Loss: {loss.item():.4f}, Val Loss: {val_loss:.4f}")
+            if args.open_val:
+                model.eval()
+                val_loss = 0
+                with torch.no_grad():
+                    for val_batch_inputs, val_batch_targets in val_dataloader:
+                        val_batch_inputs = val_batch_inputs.to(device)
+                        val_batch_targets = val_batch_targets.to(device)
+                        val_batch_inputs = val_batch_inputs.permute(0, 2, 1)
+                        val_outputs = model(val_batch_inputs)
+                        val_loss += criterion(val_outputs, val_batch_targets).item()
+                    val_loss /= len(val_dataloader)
+                    print(f"Epoch [{epoch + 1}/{num_epochs}], Train Loss: {loss.item():.4f}, Val Loss: {val_loss:.4f}")
 
-            es(val_loss)
-            if es.counter == 0 and epoch > args.least_epochs:
-                # 保存当前最佳模型状态
-                current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-                file_name = f"model/param/medformer_{current_time}_valLoss{val_loss}_epoch{epoch + 1}.pth"
-                torch.save(model.state_dict(), file_name)
+                    es(val_loss)
+                    if es.counter == 0 and epoch > args.least_epochs:
+                        # 保存当前最佳模型状态
+                        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        file_name = f"model/param/medformer_{current_time}_valLoss{val_loss}_epoch{epoch + 1}.pth"
+                        torch.save(model.state_dict(), file_name)
 
-            # 判断是否满足早停条件
-            if es.early_stop and args.open_es:
-                break
+                    # 判断是否满足早停条件
+                    if es.early_stop and args.open_es:
+                        break
 
     current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
     file_name = f"model/param/medformer_{current_time}_epoch{num_epochs}.pth"
     torch.save(model.state_dict(), file_name)
     print("The model has been saved successfully!")
 else:
-    model.load_state_dict(torch.load('model/param/medformer_20241216_174121_epoch400.pth'))
+    model.load_state_dict(torch.load('model/param/medformer_66w.pth'))
 
     model.eval()  # 设置模型为评估模式
     total_loss = 0
@@ -272,72 +277,72 @@ else:
             DBP10.append(trough_percentages[1])
             DBP15.append(trough_percentages[2])
 
-            batch_inputs = batch_inputs.permute(0, 2, 1).cpu()
-            for i in pos_id:
-                fig, axs = plt.subplots(3, 1, figsize=(18, 10))
-
-                # 绘制PPG
-                axs[0].plot(batch_inputs[i][0], label='PPG')
-                axs[0].set_title('PPG Signal')
-                axs[0].set_xlabel('Time')
-                axs[0].set_ylabel('Amplitude')
-                axs[0].legend()
-
-                # 绘制ECG
-                axs[1].plot(batch_inputs[i][1], label='ECG')
-                axs[1].set_title('ECG Signal')
-                axs[1].set_xlabel('Time')
-                axs[1].set_ylabel('Amplitude')
-                axs[1].legend()
-
-                # 绘制ABP_pred和ABP_true
-                axs[2].plot(batch_targets_inver[i], label='True ABP', color='blue')
-                axs[2].plot(outputs_inver[i], label='Predicted ABP', color='red')
-                axs[2].set_title('ABP Signal')
-                axs[2].set_xlabel('Time')
-                axs[2].set_ylabel('Blood Pressure (mmHg)')
-                axs[2].legend()
-
-                # 调整布局以避免标签重叠
-                plt.tight_layout()
-
-                # 保存图片到本地
-                plt.savefig(f'data/pos/pos_{cnt}.png')
-                plt.close()
-                cnt += 1
-
-            for i in neg_id:
-                fig, axs = plt.subplots(3, 1, figsize=(12, 8))
-
-                # 绘制PPG
-                axs[0].plot(batch_inputs[i][0], label='PPG')
-                axs[0].set_title('PPG Signal')
-                axs[0].set_xlabel('Time')
-                axs[0].set_ylabel('Amplitude')
-                axs[0].legend()
-
-                # 绘制ECG
-                axs[1].plot(batch_inputs[i][1], label='ECG')
-                axs[1].set_title('ECG Signal')
-                axs[1].set_xlabel('Time')
-                axs[1].set_ylabel('Amplitude')
-                axs[1].legend()
-
-                # 绘制ABP_pred和ABP_true
-                axs[2].plot(batch_targets_inver[i], label='True ABP', color='blue')
-                axs[2].plot(outputs_inver[i], label='Predicted ABP', color='red')
-                axs[2].set_title('ABP Signal')
-                axs[2].set_xlabel('Time')
-                axs[2].set_ylabel('Blood Pressure (mmHg)')
-                axs[2].legend()
-
-                # 调整布局以避免标签重叠
-                plt.tight_layout()
-
-                # 保存图片到本地
-                plt.savefig(f'data/neg/neg1_{cnt1}.png')
-                plt.close()
-                cnt1 += 1
+            # batch_inputs = batch_inputs.permute(0, 2, 1).cpu()
+            # for i in pos_id:
+            #     fig, axs = plt.subplots(3, 1, figsize=(18, 10))
+            #
+            #     # 绘制PPG
+            #     axs[0].plot(batch_inputs[i][0], label='PPG')
+            #     axs[0].set_title('PPG Signal')
+            #     axs[0].set_xlabel('Time')
+            #     axs[0].set_ylabel('Amplitude')
+            #     axs[0].legend()
+            #
+            #     # 绘制ECG
+            #     axs[1].plot(batch_inputs[i][1], label='ECG')
+            #     axs[1].set_title('ECG Signal')
+            #     axs[1].set_xlabel('Time')
+            #     axs[1].set_ylabel('Amplitude')
+            #     axs[1].legend()
+            #
+            #     # 绘制ABP_pred和ABP_true
+            #     axs[2].plot(batch_targets_inver[i], label='True ABP', color='blue')
+            #     axs[2].plot(outputs_inver[i], label='Predicted ABP', color='red')
+            #     axs[2].set_title('ABP Signal')
+            #     axs[2].set_xlabel('Time')
+            #     axs[2].set_ylabel('Blood Pressure (mmHg)')
+            #     axs[2].legend()
+            #
+            #     # 调整布局以避免标签重叠
+            #     plt.tight_layout()
+            #
+            #     # 保存图片到本地
+            #     plt.savefig(f'data/pos/pos_{cnt}.png')
+            #     plt.close()
+            #     cnt += 1
+            #
+            # for i in neg_id:
+            #     fig, axs = plt.subplots(3, 1, figsize=(12, 8))
+            #
+            #     # 绘制PPG
+            #     axs[0].plot(batch_inputs[i][0], label='PPG')
+            #     axs[0].set_title('PPG Signal')
+            #     axs[0].set_xlabel('Time')
+            #     axs[0].set_ylabel('Amplitude')
+            #     axs[0].legend()
+            #
+            #     # 绘制ECG
+            #     axs[1].plot(batch_inputs[i][1], label='ECG')
+            #     axs[1].set_title('ECG Signal')
+            #     axs[1].set_xlabel('Time')
+            #     axs[1].set_ylabel('Amplitude')
+            #     axs[1].legend()
+            #
+            #     # 绘制ABP_pred和ABP_true
+            #     axs[2].plot(batch_targets_inver[i], label='True ABP', color='blue')
+            #     axs[2].plot(outputs_inver[i], label='Predicted ABP', color='red')
+            #     axs[2].set_title('ABP Signal')
+            #     axs[2].set_xlabel('Time')
+            #     axs[2].set_ylabel('Blood Pressure (mmHg)')
+            #     axs[2].legend()
+            #
+            #     # 调整布局以避免标签重叠
+            #     plt.tight_layout()
+            #
+            #     # 保存图片到本地
+            #     plt.savefig(f'data/neg/neg1_{cnt1}.png')
+            #     plt.close()
+            #     cnt1 += 1
 
     average_loss = total_loss / len(test_dataloader)
     rmse_loss = torch.sqrt(torch.tensor(average_loss))
