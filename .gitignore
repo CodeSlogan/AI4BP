@@ -156,6 +156,8 @@ cython_debug/
 
 data/
 
+llama7b/
+
 model/param
 
 # PyCharm

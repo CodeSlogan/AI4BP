@@ -98,10 +98,8 @@ accelerator = Accelerator(kwargs_handlers=[ddp_kwargs], deepspeed_plugin=deepspe
 
 for ii in range(args.itr):
     # setting record of experiments
-    setting = '{}_{}_{}_ft{}_sl{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_fc{}_eb{}_{}_{}'.format(
+    setting = '{}_ft{}_sl{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_fc{}_eb{}_{}_{}'.format(
         args.task_name,
-        args.model,
-        args.data,
         args.features,
         args.seq_len,
         args.pred_len,
@@ -114,9 +112,9 @@ for ii in range(args.itr):
         args.embed,
         args.des, ii)
 
-    input1_scaler, input2_scaler, output_scaler, train_loader, vali_loader, test_loader = DataModule2(args)
-
     model = Model(args).float()
+
+    input1_scaler, input2_scaler, output_scaler, train_loader, vali_loader, test_loader = DataModule2(args)
 
     path = os.path.join(args.checkpoints,
                         setting + '-' + args.model_comment)  # unique checkpoint saving path
@@ -148,8 +146,8 @@ for ii in range(args.itr):
     criterion = nn.MSELoss()
     mae_metric = nn.L1Loss()
 
-    train_loader, vali_loader, test_loader, model, model_optim, scheduler = accelerator.prepare(
-        train_loader, vali_loader, test_loader, model, model_optim, scheduler)
+    # train_loader, vali_loader, test_loader, model, model_optim, scheduler = accelerator.prepare(
+    #     train_loader, vali_loader, test_loader, model, model_optim, scheduler)
 
     if args.use_amp:
         scaler = torch.cuda.amp.GradScaler()
@@ -168,10 +166,10 @@ for ii in range(args.itr):
             batch_y = batch_y.float().to(accelerator.device)
 
             # decoder input
-            dec_inp = torch.zeros_like(batch_y[:, -args.pred_len:, :]).float().to(
-                accelerator.device)
-            dec_inp = torch.cat([batch_y[:, :args.label_len, :], dec_inp], dim=1).float().to(
-                accelerator.device)
+            # dec_inp = torch.zeros_like(batch_y[:, -args.pred_len:, :]).float().to(
+            #     accelerator.device)
+            # dec_inp = torch.cat([batch_y[:, :args.label_len, :], dec_inp], dim=1).float().to(
+            #     accelerator.device)
 
             # encoder - decoder
             if args.use_amp:

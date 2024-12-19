@@ -35,21 +35,21 @@ class Model(nn.Module):
         self.pred_len = configs.pred_len
         self.seq_len = configs.seq_len
         self.d_ff = configs.d_ff
-        self.top_k = 5
+        self.top_k = 2
         self.d_llm = configs.llm_dim
         self.patch_len = configs.patch_len
         self.stride = configs.stride
 
         if configs.llm_model == 'LLAMA':
-            # self.llama_config = LlamaConfig.from_pretrained('/mnt/alps/modelhub/pretrained_model/LLaMA/7B_hf/')
-            self.llama_config = LlamaConfig.from_pretrained('huggyllama/llama-7b')
+            self.llama_config = LlamaConfig.from_pretrained('./llama7b')
+            # self.llama_config = LlamaConfig.from_pretrained('huggyllama/llama-7b')
             self.llama_config.num_hidden_layers = configs.llm_layers
             self.llama_config.output_attentions = True
             self.llama_config.output_hidden_states = True
             try:
                 self.llm_model = LlamaModel.from_pretrained(
-                    # "/mnt/alps/modelhub/pretrained_model/LLaMA/7B_hf/",
-                    'huggyllama/llama-7b',
+                    './llama7b',
+                    # 'huggyllama/llama-7b',
                     trust_remote_code=True,
                     local_files_only=True,
                     config=self.llama_config,
@@ -67,8 +67,8 @@ class Model(nn.Module):
                 )
             try:
                 self.tokenizer = LlamaTokenizer.from_pretrained(
-                    # "/mnt/alps/modelhub/pretrained_model/LLaMA/7B_hf/tokenizer.model",
-                    'huggyllama/llama-7b',
+                    './llama7b',
+                    # 'huggyllama/llama-7b',
                     trust_remote_code=True,
                     local_files_only=True
                 )
@@ -190,11 +190,16 @@ class Model(nn.Module):
             raise NotImplementedError
 
         self.normalize_layers = Normalize(configs.enc_in, affine=False)
+        self.pro = nn.Linear(self.pred_len * 2, self.pred_len)
+
 
     def forward(self, x_enc):
         if self.task_name == 'long_term_forecast' or self.task_name == 'short_term_forecast':
             dec_out = self.forecast(x_enc)
-            return dec_out[:, -self.pred_len:, :]
+            dec_out = dec_out[:, -self.pred_len:, :]
+            dec_out = dec_out.reshape(dec_out.shape[0], -1)
+            dec_out = self.pro(dec_out)
+            return dec_out
         return None
 
     def forecast(self, x_enc):
@@ -260,6 +265,7 @@ class Model(nn.Module):
         res = q_fft * torch.conj(k_fft)
         corr = torch.fft.irfft(res, dim=-1)
         mean_value = torch.mean(corr, dim=1)
+        print(mean_value.shape)  # torch.Size([12000, 2])
         _, lags = torch.topk(mean_value, self.top_k, dim=-1)
         return lags
 

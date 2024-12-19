@@ -224,10 +224,5 @@ def test(args, accelerator, model, train_loader, vali_loader, criterion):
 
 
 def load_content(args):
-    if 'ETT' in args.data:
-        file = 'ETT'
-    else:
-        file = args.data
-    with open('./dataset/prompt_bank/{0}.txt'.format(file), 'r') as f:
-        content = f.read()
+    content = "Noninvasive continuous blood pressure prediction, which translates ECG and PPG sequences of 500 lengths into blood pressure sequences of the same length"
     return content
